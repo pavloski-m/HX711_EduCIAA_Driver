@@ -2,38 +2,46 @@
 #include "sapi.h"     // <= sAPI header
 #include "HX711port.h"
 #include "HX711_driver.h"
+#include "UART_Message.h"
+#include "sapi_gpio.h"
 
+#define BAUD_RATE			115200
+#define UART_CHANNEL		UART_USB
 
 
 
 int main (void)  {
 
+
 	// Inicializar y configurar la plataforma
 	boardConfig();
 
+	// Inicializar UART_USB a 115200 baudios.
+//================ UART ======================
+	uartMap_t UART_CHANNEL = UART_USB;
+
+	initUART(UART_CHANNEL, BAUD_RATE);
+//============================================
+
+	module_t modulo1;			// Aqui instancio las variables de  mi módulo
+
+	bool_t assert;
 
 
-	 // Inicializar UART_USB a 115200 baudios. Esto es de SAPI!
-	uartConfig( UART_USB, 115200 );
+	assert = init_HX711_Driver(&modulo1, GPIO0, GPIO1, 128); // Inicializo el driver con el módulo
 
+	if(!assert){
+		msgError();
+	}
 
-
-	/**
-	 * Se inicializa el hardware especifico para este proyecto
-	 */
-
-
-	initHx711 (GPIO0, GPIO1, 128);
-
-	inicialize(); //inicialización de balanza
-
-	uartWriteString( UART_USB, "inicializa \r\n" );
-
+	uint32_t a;
 
 	while(1)  {
 
 
-		msgOffset(actualizarDato());
+		a = actualizarDato (&modulo1);
+
+		msgValor(a);
 
 		delay(100);
 

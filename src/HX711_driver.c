@@ -7,102 +7,105 @@
 
 #include "HX711_driver.h"
 
-static char uartBuff[10];
-static uint32_t sgnFilter;
-static uint32_t dataTare;
-//
+// ======== Para configurar la ganancia =======================/
+
+#define   	FACTOR_ESCALA_MG   	719  //Número por el que se divide la cuenta para que el valor se de en milgramos
+#define		TARE_BUFFER			4
+#define		MS_TARE_SAMPLES		10
+
+/**
+ * Se define una estructura interna al driver que no es visible al usuario.
+ * Se utiliza para cargar las funciones definidas especificamente como port para
+ * el hardware especifico.
+ */
+
+static port_HX711_t port_HX711_ctrl; //
 
 
-char* itoa(int value, char* result, int base) {
-   // check that the base if valid
-   if (base < 2 || base > 36) { *result = '\0'; return result; }
 
-   char* ptr = result, *ptr1 = result, tmp_char;
-   int tmp_value;
+// Función para inicializar el driver con las funciones del port y el módulo
 
-   do {
-      tmp_value = value;
-      value /= base;
-      *ptr++ = "zyxwvutsrqponmlkjihgfedcba9876543210123456789abcdefghijklmnopqrstuvwxyz" [35 + (tmp_value - value * base)];
-   } while ( value );
+bool_t init_HX711_Driver(module_t *modulo, gpioMap_t ADDO, gpioMap_t ADSK, uint8_t channelGain){
 
-   // Apply negative sign
-   if (tmp_value < 0) *ptr++ = '-';
-   *ptr-- = '\0';
-   while(ptr1 < ptr) {
-      tmp_char = *ptr;
-      *ptr--= *ptr1;
-      *ptr1++ = tmp_char;
-   }
-   return result;
+	bool_t assertInit;
+
+	port_HX711_ctrl.configParameters = initHx711;
+	port_HX711_ctrl.getRawData = readRawValue;
+	port_HX711_ctrl.initUpdtISR = initISR_HX711;
+
+	assertInit = port_HX711_ctrl.configParameters (ADDO, ADSK, channelGain);
+
+
+	// Se cargan la variables del módulo que se pasó por referencia
+
+	modulo->rawData = port_HX711_ctrl.getRawData();
+	modulo->offset = modulo->rawData;
+	modulo->filterValue = FILTER_INIT;
+	modulo->escala = FACTOR_ESCALA_MG;
+	modulo->estado_continuo = ONE_READ;
+
+	modulo->offset = (int32_t) updateTare(modulo);
+
+	return assertInit; 	// se puede pasar GPIO para configurar individualmente los módulos
 }
 
 
-void inicialize(){
-	updateTare();
+// Función que toma la muestra para actualizar la tara
+uint32_t updateTare (module_t *modulo){
 
-	sgnFilter = 50;
-	//prevValue=0;
+	uint32_t suma = 0;
 
-	uartWriteString( UART_USB, "Inicilización correcta..\r\n" );
-}
+	for(int i=0; i<TARE_BUFFER; i++){
 
+		suma += ((port_HX711_ctrl.getRawData())/4);
+		delay(MS_TARE_SAMPLES);
+	}
 
-void msgOffset(uint32_t Offset){
-
-	itoa( Offset, uartBuff, 10 ); /* número en base 10 */
-	uartWriteString( UART_USB, uartBuff );
-	uartWriteString( UART_USB, "\r\n" );
+	return ((uint32_t) suma);
 
 }
 
+// Función para activar la conversión continua en el port
+void activateISRConvertion(void){
 
-void incFiltro (void){
-
-	sgnFilter += 5;
-	if (sgnFilter>100){
-		sgnFilter = 100;}
+	port_HX711_ctrl.initUpdtISR(CONVERTION, 4);
 
 }
 
 
-void decFiltro (void){
-
-	sgnFilter -= 5;
-	if (sgnFilter<5){
-		sgnFilter = 5;}
-
-}
-
-
-void updateTare (){
-
-	dataTare = readRawValue();
-
-//	uint32_t suma = 0;
-//	for(int i=0; i<4; i++){
-//		suma += readRawValue()/4;
-//		delay(10);
-//	}
-//	dataTare = (uint32_t) suma;
-}
-
-
-int32_t actualizarDato (void){
+//Función para actualizar el valor
+int32_t actualizarDato (module_t *modulo){
 
 	static int32_t prevValue=0;
 
-	int32_t datoaux = readRawValue() - dataTare;
+	int32_t datoaux = (int32_t)(port_HX711_ctrl.getRawData() - modulo->offset)/FACTOR_ESCALA_MG;
 
-	prevValue = prevValue/2 + datoaux/2;
+	float fdatoaux = (float) datoaux;
+	float fprevVal = (float) prevValue;
+	float ffilter  = ((float) modulo->filterValue) / 100;
 
-	datoaux = prevValue/719;
+	fprevVal = fprevVal*(1-ffilter) + fdatoaux*ffilter;
+
+	prevValue = (int32_t) fprevVal;
+
+	datoaux = prevValue;
+
+	modulo->processedData = datoaux;
 
 	return datoaux;
+}
+
+// Cuando quiero tener solo un dato crudo..
+int32_t one_time_read_raw (void){
+	// Acá tengo que poner solo lectura de un dato crudo
+	return (port_HX711_ctrl.getRawData());
 }
 
 
 void calibrate(void){
 
+	// rutina de calibración
+	// se actualiza  el valor de escala
+	// (Raw value con peso1 - Rawvalue sin peso) / peso1;
 
 }
