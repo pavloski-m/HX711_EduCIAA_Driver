@@ -22,7 +22,7 @@
 #define PININT_IRQ_HANDLER   GPIO0_IRQHandler   // GPIO interrupt IRQ function name
 #define PININT_NVIC_NAME     PIN_INT0_IRQn      // GPIO interrupt NVIC interrupt name
 
-#define CICLOS_NO_CONV		8
+#define CICLOS_NO_CONV		16
 
 //%%%%%%%%%%%%%%%%%%%%%%%%%%%  Declaración de variables globales   %%%%%%%%%%%%%%%%
 
@@ -30,12 +30,12 @@ static uint8_t sckCycles = 1;
 static gpioMap_t clkSignal;
 static gpioMap_t outSignal;
 static uint32_t raw_data;
-static int8_t ISRFilter;
+static uint8_t ISRFilter;
 
 
 
 // Inicialización de la rutina de interrupción con LPC Open
-void initISR_HX711(ISRC_State_t int_HX711, int8_t FiltroISR){
+void initISR_HX711(ISRC_State_t int_HX711, uint8_t FiltroISR){
 
 	if(CONVERTION == int_HX711){
 		ISRFilter = FiltroISR;
@@ -57,27 +57,30 @@ void initISR_HX711(ISRC_State_t int_HX711, int8_t FiltroISR){
 	else{
 		NVIC_DisableIRQ( PININT_NVIC_NAME );
 	}
-
-
 }
+
 
 
 // Handler interrupt from GPIO pin or GPIO pin mapped to PININT
 void GPIO0_IRQHandler(void)
-{	static uint8_t counter = CICLOS_NO_CONV;
+{
+	static uint8_t counter = CICLOS_NO_CONV;
    // Se da aviso que se trato la interrupcion
-
 	if(counter<1){
 	   NVIC_DisableIRQ( PININT_NVIC_NAME );
-	   counter=8;
 
-	   raw_data = ((ISRFilter-1)*raw_data/ISRFilter) + readRawValue()/ISRFilter;  // De esta manera puedo suavizar datos
+	   counter = CICLOS_NO_CONV;
+
+	   raw_data = readRawValue();
+
+	   //raw_data = ((ISRFilter-1)*raw_data/ISRFilter) + readRawValue()/ISRFilter;  // De esta manera puedo suavizar datos
+
 	}
+	NVIC_EnableIRQ( PININT_NVIC_NAME );
+
+	Chip_PININT_ClearIntStatus( LPC_GPIO_PIN_INT, PININTCH(PININT_INDEX) );
 
 	counter--;
-
-	NVIC_EnableIRQ( PININT_NVIC_NAME );
-	Chip_PININT_ClearIntStatus( LPC_GPIO_PIN_INT, PININTCH(PININT_INDEX) );
 }
 
 
@@ -149,4 +152,12 @@ uint32_t readRawValue (void){
 	rawdata=rawdata^0x800000;  // Hace el complemento a 2 con XOR
 
 	return (rawdata);
+}
+
+void sleepHX711 (void){
+	gpioWrite(clkSignal, 1);
+}
+
+void awakeHX711 (void){
+	gpioWrite(clkSignal, 0);
 }

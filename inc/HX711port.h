@@ -19,7 +19,7 @@ enum askType{
 
 typedef enum askType ISRC_State_t;
 
-void initISR_HX711(ISRC_State_t int_HX711, int8_t FiltroISR);
+void initISR_HX711(ISRC_State_t int_HX711, uint8_t FiltroISR);
 
 void GPIO0_IRQHandler(void);
 
@@ -28,6 +28,10 @@ uint32_t readRawValueISR (void);
 bool_t initHx711 (gpioMap_t ADDO, gpioMap_t ADSK, uint8_t channelGain);
 
 uint32_t readRawValue (void);
+
+void sleepHX711 (void);
+
+void awakeHX711 (void);
 
 
 #endif /* HX711_EDUCIAA_DRIVER_INC_HX711PORT_H_ */

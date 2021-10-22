@@ -16,30 +16,37 @@
 #define FILTER_MIN			10
 #define FILTER_INIT			(FILTER_MAX - FILTER_MIN)/2
 
+#define FILTER_CONT			4
 
 //=========================Puntero a funciones======================================
 
-typedef	bool_t	(*INIT_DRIVER)(gpioMap_t, gpioMap_t, uint8_t);        // acá voy a pasar los punteros de funciones al objeto
-typedef uint32_t (*HX711_GETDATA) (void);	// es la función que devuelve el dato crudo de la medición.
-typedef void	(*CONTINUOUS_UPDATE) (ISRC_State_t int_HX711, int8_t ISRFil);	//
+typedef	bool_t	 (*INIT_DRIVER)(gpioMap_t, gpioMap_t, uint8_t);     			// acá voy a pasar los punteros de funciones al objeto
+typedef uint32_t (*HX711_GETDATA) (void);										// es la función que devuelve el dato crudo de la medición.
+typedef uint32_t (*HX711_GET_ISR_DATA) (void);									// fcion para tomar un dato de la conversión continua
+typedef void	 (*CONTINUOUS_UPDATE) (ISRC_State_t int_HX711, uint8_t ISRFil);	// fcion para habilitar la conversión continua
+typedef void	 (*SLEEP_MODULE)	(void);
+typedef void	 (*AWAKE_MODULE)	(void);
 
 //=======================Estructura con instancia de punteros a funciones===========
 
-typedef struct {							// Estructura con punteros a funciones
-	INIT_DRIVER			configParameters;
-	HX711_GETDATA 		getRawData;			// Para pedir un dato
-	CONTINUOUS_UPDATE 	initUpdtISR;		// Para activar el refresco continuo
+typedef struct {																// Estructura con punteros a funciones.
+	INIT_DRIVER			configParameters;										// Se configuran los parametros del puerto.
+	HX711_GETDATA 		getRawData;												// pide que convierta un dato y lo lee.
+	HX711_GET_ISR_DATA	getRawISRData;											// lee el dato actual de la conversion continua.
+	CONTINUOUS_UPDATE 	initUpdtISR;											// Para activar el refresco continuo.
+	SLEEP_MODULE		sleepmodule;											// Pone el módulo en bajo consumo.
+	AWAKE_MODULE		awakemodule;											// Despirta el módulo en bajo consumo.
 }port_HX711_t;
 
 
 //========================Estructura de cada módulo que se instancia ===============
 typedef struct {
-	uint32_t		rawData;
-	int32_t 		processedData;
-	uint32_t 		offset;
-	uint16_t 		filterValue;
-	uint16_t		escala;
-	ISRC_State_t	estado_continuo;
+	uint32_t			rawData;
+	int32_t 			processedData;
+	uint32_t 			offset;
+	uint16_t 			filterValue;
+	uint16_t			escala;
+	ISRC_State_t		estado_continuo;
 }module_t;
 
 
@@ -52,7 +59,15 @@ uint32_t updateTare (module_t *modulo);
 
 int32_t actualizarDato (module_t *modulo);
 
+void activateISRConvertion(module_t *modulo);
+
+void disableISRConvertion(module_t *modulo);
+
+int32_t	actualizarDatoISR (module_t *modulo);
+
 int32_t one_time_read_raw (void);
+
+void HX711state (bool_t estado);
 
 void calibrate(void);
 

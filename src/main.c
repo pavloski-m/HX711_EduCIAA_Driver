@@ -12,7 +12,6 @@
 
 int main (void)  {
 
-
 	// Inicializar y configurar la plataforma
 	boardConfig();
 
@@ -27,23 +26,37 @@ int main (void)  {
 
 	bool_t assert;
 
-
 	assert = init_HX711_Driver(&modulo1, GPIO0, GPIO1, 128); // Inicializo el driver con el módulo
 
 	if(!assert){
 		msgError();
 	}
 
-	uint32_t a;
+	//gpioInit( GPIO2, GPIO_OUTPUT );
+	// función para inicializar la conversión ISR
+	//activateISRConvertion(&modulo1);
+
+	int32_t a;
 
 	while(1)  {
 
 
-		a = actualizarDato (&modulo1);
+/*Prueba de bajo consumo*/
+//		HX711state(OFF);
+//
+//		delay(1000);
+//
+//		HX711state(ON);
+//
+//		delay(1000);
 
+		//gpioWrite(GPIO2,ON);
+		a = actualizarDato (&modulo1);
+		//a = actualizarDatoISR(&modulo1);
+		//gpioWrite(GPIO2,OFF);
 		msgValor(a);
 
-		delay(100);
+		delay(200);
 
 	}
 }
